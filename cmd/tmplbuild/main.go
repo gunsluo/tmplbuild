@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 
 	"github.com/gunsluo/tmplbuild"
+	"github.com/gunsluo/tmplbuild/css"
+	"github.com/gunsluo/tmplbuild/html"
 	"github.com/gunsluo/tmplbuild/image"
 	"github.com/gunsluo/tmplbuild/js"
 )
@@ -144,7 +146,9 @@ func (t *task) Build(ctx *tmplbuild.Context, placeholders tmplbuild.Placeholders
 func newCompiler(mediaType tmplbuild.MediaType) tmplbuild.Compiler {
 	switch mediaType {
 	case tmplbuild.HtmlMediaType:
+		return &html.Compiler{}
 	case tmplbuild.CssMediaType:
+		return &css.Compiler{}
 	case tmplbuild.JsMediaType:
 		return &js.Compiler{}
 	case tmplbuild.ImageMediaType:

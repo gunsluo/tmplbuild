@@ -110,3 +110,23 @@ func (b *Compiler) Write(ctx *tmplbuild.Context, path string, data []byte) (stri
 
 	return origin, target, nil
 }
+
+func (b *Compiler) WriteNotChange(ctx *tmplbuild.Context, path string, data []byte) (string, string, error) {
+	relativePath := strings.TrimPrefix(strings.TrimPrefix(path, ctx.Dir), "/")
+	outPath := filepath.Join(ctx.Dst, relativePath)
+
+	if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
+		return "", "", err
+	}
+
+	if err := os.WriteFile(outPath, data, 0644); err != nil {
+		return "", "", err
+	}
+
+	origin := relativePath
+	if ctx.IgnorePrefix != "" {
+		origin = strings.TrimPrefix(strings.TrimPrefix(origin, ctx.IgnorePrefix), "/")
+	}
+
+	return origin, origin, nil
+}
