@@ -1,6 +1,7 @@
-package image
+package js
 
 import (
+	"bytes"
 	"io"
 
 	"github.com/gunsluo/tmplbuild"
@@ -17,12 +18,17 @@ func (b *Compiler) Build(ctx *tmplbuild.Context, inputs []*tmplbuild.Input, plac
 		return err
 	}
 
-	placeholders[tmplbuild.ImageMediaType] = placeholder
+	placeholders[tmplbuild.JsMediaType] = placeholder
 	return nil
 }
 
 func (b *Compiler) build(ctx *tmplbuild.Context, input *tmplbuild.Input, placeholders tmplbuild.Placeholders) (string, string, error) {
-	data, err := io.ReadAll(input.Reader)
+	buffer, err := io.ReadAll(input.Reader)
+	if err != nil {
+		return "", "", err
+	}
+
+	data, err := b.insteadOfPlaceholder(buffer, placeholders)
 	if err != nil {
 		return "", "", err
 	}
@@ -33,4 +39,17 @@ func (b *Compiler) build(ctx *tmplbuild.Context, input *tmplbuild.Input, placeho
 	}
 
 	return origin, target, nil
+}
+
+func (b *Compiler) insteadOfPlaceholder(data []byte, placeholders tmplbuild.Placeholders) ([]byte, error) {
+	placeholder, ok := placeholders[tmplbuild.ImageMediaType]
+	if !ok {
+		return data, nil
+	}
+
+	for o, t := range placeholder {
+		data = bytes.ReplaceAll(data, []byte(o), []byte(t))
+	}
+
+	return data, nil
 }

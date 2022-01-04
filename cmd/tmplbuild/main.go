@@ -8,6 +8,7 @@ import (
 
 	"github.com/gunsluo/tmplbuild"
 	"github.com/gunsluo/tmplbuild/image"
+	"github.com/gunsluo/tmplbuild/js"
 )
 
 func main() {
@@ -145,6 +146,7 @@ func newCompiler(mediaType tmplbuild.MediaType) tmplbuild.Compiler {
 	case tmplbuild.HtmlMediaType:
 	case tmplbuild.CssMediaType:
 	case tmplbuild.JsMediaType:
+		return &js.Compiler{}
 	case tmplbuild.ImageMediaType:
 		return &image.Compiler{}
 	}
