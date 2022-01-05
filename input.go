@@ -15,6 +15,8 @@ func GetMediaTypeByFilePath(path string) MediaType {
 	switch ext {
 	case ".html":
 		return HtmlMediaType
+	case ".tpl":
+		return HtmlMediaType
 	case ".js":
 		return JsMediaType
 	case ".css":

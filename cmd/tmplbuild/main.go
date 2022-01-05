@@ -5,22 +5,26 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/gunsluo/tmplbuild"
 	"github.com/gunsluo/tmplbuild/css"
 	"github.com/gunsluo/tmplbuild/html"
 	"github.com/gunsluo/tmplbuild/image"
 	"github.com/gunsluo/tmplbuild/js"
+	"github.com/gunsluo/tmplbuild/other"
 )
 
 func main() {
 	var dst string
 	var concurrent int
 	var ignorePrefix string
+	var replicaFiles string
 
 	flag.StringVar(&dst, "o", "dist", "is output dir")
 	flag.IntVar(&concurrent, "c", 100, "is concurrent number")
 	flag.StringVar(&ignorePrefix, "ignore-prefix", "", "ignore prefix for js css and image file")
+	flag.StringVar(&replicaFiles, "replica-files", "", "the list of replica file")
 	flag.Parse()
 
 	args := flag.Args()
@@ -29,6 +33,7 @@ func main() {
 		return
 	}
 	dir := args[0]
+	repFiles := strings.Split(replicaFiles, ",")
 
 	ts := newTasks()
 	if err := ts.Read(dir); err != nil {
@@ -41,6 +46,7 @@ func main() {
 		Dir:          dir,
 		Concurrent:   concurrent,
 		IgnorePrefix: ignorePrefix,
+		ReplicaFiles: repFiles,
 	}
 	if err := ts.Build(ctx); err != nil {
 		fmt.Printf("build: %v\n", err)
@@ -59,6 +65,7 @@ func newTasks() *tasks {
 			{tmplbuild.ImageMediaType},
 			{tmplbuild.JsMediaType, tmplbuild.CssMediaType},
 			{tmplbuild.HtmlMediaType},
+			{tmplbuild.UnknowMediaType},
 		},
 	}
 
@@ -155,6 +162,8 @@ func newCompiler(mediaType tmplbuild.MediaType) tmplbuild.Compiler {
 		return &js.Compiler{}
 	case tmplbuild.ImageMediaType:
 		return &image.Compiler{}
+	case tmplbuild.UnknowMediaType:
+		return &other.Compiler{}
 	}
 
 	return nil

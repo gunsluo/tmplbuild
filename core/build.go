@@ -62,6 +62,7 @@ func (b *Compiler) Build(ctx *tmplbuild.Context, inputs []*tmplbuild.Input, plac
 				Dst:          ctx.Dst,
 				Dir:          ctx.Dir,
 				IgnorePrefix: ctx.IgnorePrefix,
+				ReplicaFiles: ctx.ReplicaFiles,
 			},
 		}
 	}
@@ -106,8 +107,22 @@ func (b *Compiler) Write(ctx *tmplbuild.Context, path string, data []byte) (stri
 		target = strings.TrimPrefix(strings.TrimPrefix(target, ctx.IgnorePrefix), "/")
 	}
 
+	// save replica file
+	for _, f := range ctx.ReplicaFiles {
+		if f == origin {
+			replicaPath := filepath.Join(ctx.Dst, relativePath)
+			if err := os.WriteFile(replicaPath, data, 0644); err != nil {
+				return "", "", err
+			}
+			break
+		}
+	}
+
 	return origin, target, nil
 }
+
+//func (b *Compiler) saveReplicaFiles(, path string, data []byte) (string, string, error) {
+//}
 
 func (b *Compiler) WriteNotChange(ctx *tmplbuild.Context, path string, data []byte) (string, string, error) {
 	relativePath := strings.TrimPrefix(strings.TrimPrefix(path, ctx.Dir), "/")
