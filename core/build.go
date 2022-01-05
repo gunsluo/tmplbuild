@@ -39,7 +39,7 @@ func (b *Compiler) Build(ctx *tmplbuild.Context, inputs []*tmplbuild.Input, plac
 		concurrent = ctx.Concurrent
 	}
 	ch := make(chan req)
-	done := make(chan resp)
+	done := make(chan resp, length)
 
 	// set max worker number
 	for w := 0; w < concurrent; w++ {
