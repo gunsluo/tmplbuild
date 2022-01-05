@@ -4,7 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 
 	"github.com/gunsluo/tmplbuild"
 	"github.com/gunsluo/tmplbuild/hash"
@@ -19,13 +18,9 @@ type req struct {
 }
 
 type resp struct {
-	placeholder tmplbuild.Placeholder
-	err         error
-}
-
-type bOne struct {
 	origin string
 	target string
+	err    error
 }
 
 type BuildFunc func(ctx *tmplbuild.Context, input *tmplbuild.Input, placeholders tmplbuild.Placeholders) (string, string, error)
@@ -36,40 +31,29 @@ func (b *Compiler) Build(ctx *tmplbuild.Context, inputs []*tmplbuild.Input, plac
 		return nil, err
 	}
 
-	done := make(chan resp)
-	ch := make(chan req)
-	aggrch := make(chan bOne)
-
-	go func() {
-		placeholder := tmplbuild.Placeholder{}
-		for v := range aggrch {
-			placeholder[v.origin] = v.target
-		}
-
-		done <- resp{placeholder: placeholder}
-	}()
-
 	length := len(inputs)
-	wg := sync.WaitGroup{}
-	wg.Add(length)
-	go func() {
-		for r := range ch {
-			go func(r req) {
+	var concurrent int
+	if ctx.Concurrent >= length {
+		concurrent = length
+	} else {
+		concurrent = ctx.Concurrent
+	}
+	ch := make(chan req)
+	done := make(chan resp)
+
+	// set max worker number
+	for w := 0; w < concurrent; w++ {
+		go func() {
+			for r := range ch {
 				origin, target, err := buildFunc(r.ctx, r.input, placeholders)
-				if err != nil {
-					done <- resp{err: err}
-					return
-				}
-				aggrch <- bOne{
+				done <- resp{
 					origin: origin,
 					target: target,
+					err:    err,
 				}
-				wg.Done()
-			}(r)
-		}
-		wg.Wait()
-		close(aggrch)
-	}()
+			}
+		}()
+	}
 
 	for _, input := range inputs {
 		ch <- req{
@@ -84,8 +68,22 @@ func (b *Compiler) Build(ctx *tmplbuild.Context, inputs []*tmplbuild.Input, plac
 	close(ch)
 
 	// wait
-	resp := <-done
-	return resp.placeholder, resp.err
+	var err error
+	placeholder := tmplbuild.Placeholder{}
+	for i := 0; i < length; i++ {
+		resp, ok := <-done
+		if !ok {
+			break
+		}
+		if resp.err != nil {
+			err = resp.err
+			break
+		}
+
+		placeholder[resp.origin] = resp.target
+	}
+
+	return placeholder, err
 }
 
 func (b *Compiler) Write(ctx *tmplbuild.Context, path string, data []byte) (string, string, error) {

@@ -15,9 +15,11 @@ import (
 
 func main() {
 	var dst string
+	var concurrent int
 	var ignorePrefix string
 
 	flag.StringVar(&dst, "o", "dist", "is output dir")
+	flag.IntVar(&concurrent, "c", 100, "is concurrent number")
 	flag.StringVar(&ignorePrefix, "ignore-prefix", "", "ignore prefix for js css and image file")
 	flag.Parse()
 
@@ -34,7 +36,13 @@ func main() {
 		return
 	}
 
-	if err := ts.Build(dst, dir, ignorePrefix); err != nil {
+	ctx := &tmplbuild.Context{
+		Dst:          dst,
+		Dir:          dir,
+		Concurrent:   concurrent,
+		IgnorePrefix: ignorePrefix,
+	}
+	if err := ts.Build(ctx); err != nil {
 		fmt.Printf("build: %v\n", err)
 	}
 }
@@ -95,13 +103,7 @@ func (ts *tasks) AddInput(input *tmplbuild.Input) {
 	ts.all[mediaType] = t
 }
 
-func (ts *tasks) Build(dst, dir, ignorePrefix string) error {
-	ctx := &tmplbuild.Context{
-		Dst:          dst,
-		Dir:          dir,
-		IgnorePrefix: ignorePrefix,
-	}
-
+func (ts *tasks) Build(ctx *tmplbuild.Context) error {
 	// run by priority
 	placeholders := tmplbuild.Placeholders{}
 	for _, mts := range ts.priority {
