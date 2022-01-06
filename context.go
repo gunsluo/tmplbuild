@@ -7,4 +7,5 @@ type Context struct {
 	Concurrent   int
 	IgnorePrefix string
 	ReplicaFiles []string
+	BasePath     string
 }

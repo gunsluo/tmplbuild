@@ -20,11 +20,13 @@ func main() {
 	var concurrent int
 	var ignorePrefix string
 	var replicaFiles string
+	var basePath string
 
 	flag.StringVar(&dst, "o", "dist", "is output dir")
 	flag.IntVar(&concurrent, "c", 100, "is concurrent number")
 	flag.StringVar(&ignorePrefix, "ignore-prefix", "", "ignore prefix for js css and image file")
 	flag.StringVar(&replicaFiles, "replica-files", "", "the list of replica file")
+	flag.StringVar(&basePath, "base-path", "", "the base path")
 	flag.Parse()
 
 	args := flag.Args()
@@ -36,7 +38,7 @@ func main() {
 	repFiles := strings.Split(replicaFiles, ",")
 
 	ts := newTasks()
-	if err := ts.Read(dir); err != nil {
+	if err := ts.Walk(dir, basePath); err != nil {
 		fmt.Printf("read: %v\n", err)
 		return
 	}
@@ -47,6 +49,7 @@ func main() {
 		Concurrent:   concurrent,
 		IgnorePrefix: ignorePrefix,
 		ReplicaFiles: repFiles,
+		BasePath:     basePath,
 	}
 	if err := ts.Build(ctx); err != nil {
 		fmt.Printf("build: %v\n", err)
@@ -72,7 +75,7 @@ func newTasks() *tasks {
 	return ts
 }
 
-func (ts *tasks) Read(dir string) error {
+func (ts *tasks) Walk(dir, basePath string) error {
 	return filepath.Walk(dir,
 		func(path string, info os.FileInfo, err error) error {
 			if err != nil {
@@ -83,22 +86,17 @@ func (ts *tasks) Read(dir string) error {
 				return nil
 			}
 
-			f, err := os.Open(path)
-			if err != nil {
-				return err
+			if !strings.HasPrefix(path, basePath) {
+				return nil
 			}
 
-			ts.AddInput(&tmplbuild.Input{
-				Path:   path,
-				Reader: f,
-			})
-
+			ts.AddFile(path)
 			return nil
 		})
 }
 
-func (ts *tasks) AddInput(input *tmplbuild.Input) {
-	mediaType := tmplbuild.GetMediaTypeByFilePath(input.Path)
+func (ts *tasks) AddFile(path string) {
+	mediaType := tmplbuild.GetMediaTypeByFilePath(path)
 
 	t, ok := ts.all[mediaType]
 	if !ok {
@@ -106,7 +104,7 @@ func (ts *tasks) AddInput(input *tmplbuild.Input) {
 		t = task{compiler: compiler}
 	}
 
-	t.inputs = append(t.inputs, input)
+	t.files = append(t.files, path)
 	ts.all[mediaType] = t
 }
 
@@ -117,7 +115,7 @@ func (ts *tasks) Build(ctx *tmplbuild.Context) error {
 		tasks := []*task{}
 		for _, mt := range mts {
 			if t, ok := ts.all[mt]; ok {
-				if len(t.inputs) > 0 {
+				if len(t.files) > 0 {
 					tasks = append(tasks, &t)
 				}
 			}
@@ -140,12 +138,12 @@ func (ts *tasks) Build(ctx *tmplbuild.Context) error {
 
 type task struct {
 	compiler tmplbuild.Compiler
-	inputs   []*tmplbuild.Input
+	files    []string
 }
 
 func (t *task) Build(ctx *tmplbuild.Context, placeholders tmplbuild.Placeholders) error {
 	if t.compiler != nil {
-		if err := t.compiler.Build(ctx, t.inputs, placeholders); err != nil {
+		if err := t.compiler.Build(ctx, t.files, placeholders); err != nil {
 			return err
 		}
 	}

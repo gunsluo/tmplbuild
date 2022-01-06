@@ -1,6 +1,7 @@
 package core
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,8 +14,8 @@ type Compiler struct {
 }
 
 type req struct {
-	ctx   *tmplbuild.Context
-	input *tmplbuild.Input
+	path string
+	ctx  *tmplbuild.Context
 }
 
 type resp struct {
@@ -25,13 +26,13 @@ type resp struct {
 
 type BuildFunc func(ctx *tmplbuild.Context, input *tmplbuild.Input, placeholders tmplbuild.Placeholders) (string, string, error)
 
-func (b *Compiler) Build(ctx *tmplbuild.Context, inputs []*tmplbuild.Input, placeholders tmplbuild.Placeholders, buildFunc BuildFunc) (tmplbuild.Placeholder, error) {
+func (b *Compiler) Build(ctx *tmplbuild.Context, files []string, placeholders tmplbuild.Placeholders, buildFunc BuildFunc) (tmplbuild.Placeholder, error) {
 	// create dst dir
 	if err := os.MkdirAll(ctx.Dst, 0755); err != nil {
 		return nil, err
 	}
 
-	length := len(inputs)
+	length := len(files)
 	var concurrent int
 	if ctx.Concurrent >= length {
 		concurrent = length
@@ -41,11 +42,18 @@ func (b *Compiler) Build(ctx *tmplbuild.Context, inputs []*tmplbuild.Input, plac
 	ch := make(chan req)
 	done := make(chan resp, length)
 
-	// set max worker number
+	// set read & write worker number
 	for w := 0; w < concurrent; w++ {
 		go func() {
 			for r := range ch {
-				origin, target, err := buildFunc(r.ctx, r.input, placeholders)
+				input, err := b.Read(r.path)
+				if err != nil {
+					done <- resp{
+						err: err,
+					}
+					return
+				}
+				origin, target, err := buildFunc(r.ctx, input, placeholders)
 				done <- resp{
 					origin: origin,
 					target: target,
@@ -55,14 +63,15 @@ func (b *Compiler) Build(ctx *tmplbuild.Context, inputs []*tmplbuild.Input, plac
 		}()
 	}
 
-	for _, input := range inputs {
+	for _, path := range files {
 		ch <- req{
-			input: input,
+			path: path,
 			ctx: &tmplbuild.Context{
 				Dst:          ctx.Dst,
 				Dir:          ctx.Dir,
 				IgnorePrefix: ctx.IgnorePrefix,
 				ReplicaFiles: ctx.ReplicaFiles,
+				BasePath:     ctx.BasePath,
 			},
 		}
 	}
@@ -85,6 +94,25 @@ func (b *Compiler) Build(ctx *tmplbuild.Context, inputs []*tmplbuild.Input, plac
 	}
 
 	return placeholder, err
+}
+
+func (b *Compiler) Read(path string) (*tmplbuild.Input, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := io.ReadAll(f)
+	if err != nil {
+		return nil, err
+	}
+
+	input := &tmplbuild.Input{
+		Path: path,
+		Data: data,
+	}
+
+	return input, nil
 }
 
 func (b *Compiler) Write(ctx *tmplbuild.Context, path string, data []byte) (string, string, error) {
@@ -120,9 +148,6 @@ func (b *Compiler) Write(ctx *tmplbuild.Context, path string, data []byte) (stri
 
 	return origin, target, nil
 }
-
-//func (b *Compiler) saveReplicaFiles(, path string, data []byte) (string, string, error) {
-//}
 
 func (b *Compiler) WriteNotChange(ctx *tmplbuild.Context, path string, data []byte) (string, string, error) {
 	relativePath := strings.TrimPrefix(strings.TrimPrefix(path, ctx.Dir), "/")

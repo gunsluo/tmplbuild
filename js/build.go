@@ -2,7 +2,6 @@ package js
 
 import (
 	"bytes"
-	"io"
 
 	"github.com/gunsluo/tmplbuild"
 	"github.com/gunsluo/tmplbuild/core"
@@ -12,8 +11,8 @@ type Compiler struct {
 	core.Compiler
 }
 
-func (b *Compiler) Build(ctx *tmplbuild.Context, inputs []*tmplbuild.Input, placeholders tmplbuild.Placeholders) error {
-	placeholder, err := b.Compiler.Build(ctx, inputs, placeholders, b.build)
+func (b *Compiler) Build(ctx *tmplbuild.Context, files []string, placeholders tmplbuild.Placeholders) error {
+	placeholder, err := b.Compiler.Build(ctx, files, placeholders, b.build)
 	if err != nil {
 		return err
 	}
@@ -23,12 +22,7 @@ func (b *Compiler) Build(ctx *tmplbuild.Context, inputs []*tmplbuild.Input, plac
 }
 
 func (b *Compiler) build(ctx *tmplbuild.Context, input *tmplbuild.Input, placeholders tmplbuild.Placeholders) (string, string, error) {
-	buffer, err := io.ReadAll(input.Reader)
-	if err != nil {
-		return "", "", err
-	}
-
-	data, err := b.insteadOfPlaceholder(buffer, placeholders)
+	data, err := b.insteadOfPlaceholder(input.Data, placeholders)
 	if err != nil {
 		return "", "", err
 	}
