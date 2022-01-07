@@ -11,8 +11,8 @@ type Compiler struct {
 	core.Compiler
 }
 
-func (b *Compiler) Build(ctx *tmplbuild.Context, files []string, placeholders tmplbuild.Placeholders) error {
-	_, err := b.Compiler.Build(ctx, files, placeholders, b.build)
+func (b *Compiler) Build(ctx *tmplbuild.Context, files []string, symbols tmplbuild.Symbols) error {
+	_, err := b.Compiler.Build(ctx, files, symbols, b.build)
 	if err != nil {
 		return err
 	}
@@ -20,29 +20,35 @@ func (b *Compiler) Build(ctx *tmplbuild.Context, files []string, placeholders tm
 	return nil
 }
 
-func (b *Compiler) build(ctx *tmplbuild.Context, input *tmplbuild.Input, placeholders tmplbuild.Placeholders) (string, string, error) {
-	data, err := b.insteadOfPlaceholder(input.Data, placeholders)
+func (b *Compiler) build(ctx *tmplbuild.Context, input *tmplbuild.Input, symbols tmplbuild.Symbols) (*tmplbuild.Output, error) {
+	data, err := b.rewriteData(input.Data, input.Base, symbols)
 	if err != nil {
-		return "", "", err
+		return nil, err
+	}
+	input.Data = data
+
+	output, err := b.Compiler.Write(ctx, input, false)
+	if err != nil {
+		return nil, err
 	}
 
-	origin, target, err := b.Compiler.WriteNotChange(ctx, input.Path, data)
-	if err != nil {
-		return "", "", err
-	}
-
-	return origin, target, nil
+	return output, nil
 }
 
-func (b *Compiler) insteadOfPlaceholder(data []byte, placeholders tmplbuild.Placeholders) ([]byte, error) {
-	placeholder := tmplbuild.Placeholder{}
-	for _, p := range placeholders {
-		for k, v := range p {
-			placeholder[k] = v
+func (b *Compiler) rewriteData(data []byte, base string, symbols tmplbuild.Symbols) ([]byte, error) {
+	placeholders := tmplbuild.Placeholders{}
+	for _, symbol := range symbols {
+		ps, ok := symbol[base]
+		if !ok {
+			continue
+		}
+
+		for k, v := range ps {
+			placeholders[k] = v
 		}
 	}
 
-	for o, t := range placeholder {
+	for o, t := range placeholders {
 		data = bytes.ReplaceAll(data, []byte(o), []byte(t))
 	}
 

@@ -11,37 +11,43 @@ type Compiler struct {
 	core.Compiler
 }
 
-func (b *Compiler) Build(ctx *tmplbuild.Context, files []string, placeholders tmplbuild.Placeholders) error {
-	placeholder, err := b.Compiler.Build(ctx, files, placeholders, b.build)
+func (b *Compiler) Build(ctx *tmplbuild.Context, files []string, symbols tmplbuild.Symbols) error {
+	symbol, err := b.Compiler.Build(ctx, files, symbols, b.build)
 	if err != nil {
 		return err
 	}
 
-	placeholders[tmplbuild.CssMediaType] = placeholder
+	symbols[tmplbuild.CssMediaType] = symbol
 	return nil
 }
 
-func (b *Compiler) build(ctx *tmplbuild.Context, input *tmplbuild.Input, placeholders tmplbuild.Placeholders) (string, string, error) {
-	data, err := b.insteadOfPlaceholder(input.Data, placeholders)
+func (b *Compiler) build(ctx *tmplbuild.Context, input *tmplbuild.Input, symbols tmplbuild.Symbols) (*tmplbuild.Output, error) {
+	data, err := b.rewriteData(input.Data, input.Base, symbols)
 	if err != nil {
-		return "", "", err
+		return nil, err
+	}
+	input.Data = data
+
+	output, err := b.Compiler.Write(ctx, input, true)
+	if err != nil {
+		return nil, err
 	}
 
-	origin, target, err := b.Compiler.Write(ctx, input.Path, data)
-	if err != nil {
-		return "", "", err
-	}
-
-	return origin, target, nil
+	return output, nil
 }
 
-func (b *Compiler) insteadOfPlaceholder(data []byte, placeholders tmplbuild.Placeholders) ([]byte, error) {
-	placeholder, ok := placeholders[tmplbuild.ImageMediaType]
+func (b *Compiler) rewriteData(data []byte, base string, symbols tmplbuild.Symbols) ([]byte, error) {
+	symbol, ok := symbols[tmplbuild.ImageMediaType]
 	if !ok {
 		return data, nil
 	}
 
-	for o, t := range placeholder {
+	placeholders, ok := symbol[base]
+	if !ok {
+		return data, nil
+	}
+
+	for o, t := range placeholders {
 		data = bytes.ReplaceAll(data, []byte(o), []byte(t))
 	}
 

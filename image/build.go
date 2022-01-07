@@ -9,21 +9,21 @@ type Compiler struct {
 	core.Compiler
 }
 
-func (b *Compiler) Build(ctx *tmplbuild.Context, files []string, placeholders tmplbuild.Placeholders) error {
-	placeholder, err := b.Compiler.Build(ctx, files, placeholders, b.build)
+func (b *Compiler) Build(ctx *tmplbuild.Context, files []string, symbols tmplbuild.Symbols) error {
+	symbol, err := b.Compiler.Build(ctx, files, symbols, b.build)
 	if err != nil {
 		return err
 	}
 
-	placeholders[tmplbuild.ImageMediaType] = placeholder
+	symbols[tmplbuild.ImageMediaType] = symbol
 	return nil
 }
 
-func (b *Compiler) build(ctx *tmplbuild.Context, input *tmplbuild.Input, placeholders tmplbuild.Placeholders) (string, string, error) {
-	origin, target, err := b.Compiler.Write(ctx, input.Path, input.Data)
+func (b *Compiler) build(ctx *tmplbuild.Context, input *tmplbuild.Input, symbols tmplbuild.Symbols) (*tmplbuild.Output, error) {
+	output, err := b.Compiler.Write(ctx, input, true)
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 
-	return origin, target, nil
+	return output, nil
 }

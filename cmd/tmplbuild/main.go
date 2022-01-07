@@ -110,7 +110,7 @@ func (ts *tasks) AddFile(path string) {
 
 func (ts *tasks) Build(ctx *tmplbuild.Context) error {
 	// run by priority
-	placeholders := tmplbuild.Placeholders{}
+	symbols := tmplbuild.Symbols{}
 	for _, mts := range ts.priority {
 		tasks := []*task{}
 		for _, mt := range mts {
@@ -127,7 +127,7 @@ func (ts *tasks) Build(ctx *tmplbuild.Context) error {
 
 		// TODO: concurrent
 		for _, t := range tasks {
-			if err := t.Build(ctx, placeholders); err != nil {
+			if err := t.Build(ctx, symbols); err != nil {
 				return err
 			}
 		}
@@ -141,9 +141,9 @@ type task struct {
 	files    []string
 }
 
-func (t *task) Build(ctx *tmplbuild.Context, placeholders tmplbuild.Placeholders) error {
+func (t *task) Build(ctx *tmplbuild.Context, symbols tmplbuild.Symbols) error {
 	if t.compiler != nil {
-		if err := t.compiler.Build(ctx, t.files, placeholders); err != nil {
+		if err := t.compiler.Build(ctx, t.files, symbols); err != nil {
 			return err
 		}
 	}
