@@ -47,7 +47,14 @@ func (b *Compiler) rewriteData(data []byte, base string, symbols tmplbuild.Symbo
 		return data, nil
 	}
 
-	for o, t := range placeholders {
+	// sort keys fixes a bug that causes replacement issue
+	// when keys have the same suffix
+	keys := placeholders.SortKeys()
+	for _, o := range keys {
+		t, ok := placeholders[o]
+		if !ok {
+			continue
+		}
 		data = bytes.ReplaceAll(data, []byte(o), []byte(t))
 	}
 
